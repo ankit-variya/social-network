@@ -3,9 +3,11 @@ const bcrypt = require('bcrypt');
 const jwt = require("jsonwebtoken");
 const { postsValidationSchema } = require("../config/validation");
 const { _sendmail } = require('../middleware/mail');
+const { EMAIL_EXISTS, LOGIN_FAILED, MOBILE_EXISTS, FAILD_CREATE, REGISTRATION, LOGIN, EMAIL_NOT_FOUND, WRONG_PASSWORD, DATA_NOT_FOUND, MOBILE_NOT_FOUND } = require('../config/errormssages');
+const { _errorMassge, _successMassage } = require('../config/commonfunction');
 
 const validate = async (body, res) => {
-    console.log('--body', body)
+    //    console.log('--body', body)
     const obj = JSON.parse(JSON.stringify(body)); // req.body = [Object: null prototype] { title: 'product' }
 
     console.log('obj--', obj); // { title: 'product' }
@@ -26,23 +28,24 @@ const validate = async (body, res) => {
 
 const registration = async (req, res, next) => {
     try {
+
         let body = req.body;
-        const validation = await validate(body, res);
-        console.log('validation', typeof validation.error)
-        
-        let msg = validation.error;
-     console.log('validation -msg', ({msg})['toString'] )
-        if (validation.error) return res.send({ "error": ({msg})['toString'] })
+        // const validation = await validate(body, res);
+
+
+        //   console.log('validation', typeof validation.error)
+
+        //         let msg = validation.error;
+        //    //  console.log('validation -msg', ({msg})['toString'] )
+        //         if (validation.error) return res.send({ "error": ({msg})['toString'] })
 
         const findUserByEmail = await User.find({ email: req.body.email });
-        console.log('findUserByEmail', findUserByEmail.length);
-        if (findUserByEmail.length > 0) return res.status(400).send({ "error": "email already exists." })
+        if (findUserByEmail.length > 0) return _errorMassge(res, EMAIL_EXISTS)
 
         const findUserBymobile = await User.find({ mobileNo: req.body.mobileNo });
-        if (findUserBymobile.length > 0) return res.status(400).send({ "error": "mobile number already exists." })
+        if (findUserBymobile.length > 0) return _errorMassge(res, MOBILE_EXISTS)
 
         const hash = await bcrypt.hash(req.body.password, 10);
-        console.log('hash', hash)
 
         const userObj = {
             firstName: req.body.firstName,
@@ -53,85 +56,54 @@ const registration = async (req, res, next) => {
             mobileNo: req.body.mobileNo,
             profileImage: req.file.path
         }
-
-        console.log('userObj', userObj)
-        const token = jwt.sign(userObj, "abcdefgh", { expiresIn: "1h" });
-        console.log("token", token);
-
+        const token = jwt.sign(userObj, "abcdefgh", {}); // expiresIn: "1h"
         userObj.remember_token = token;
 
         const insertUser = await User.create(userObj);
-        console.log('insertUser', insertUser)
-        if (insertUser.length < 1) return res.status(400).send({ "error": "Failed to create." })
+        if (insertUser.length < 1) return _errorMassge(res, FAILD_CREATE)
 
         const mail = await _sendmail(body.email, token, res)
-        console.log('mail', mail)
 
-        return res.status(200).json({
-            message: 'Registration successful',
-            token: token
-        })
-    } catch ({ errors }) {
-        console.log('errors', errors)
-        res.status(500).json({
-            errors: Object.values(errors).map(e => e.message)
-        })
+        return _successMassage(res, token);
+    } catch (error) {
+        return next(error);
     }
 
 }
 
 const login = async (req, res, next) => {
     try {
-        console.log('mmm')
         const email = req.body.email;
         const mobileNo = req.body.mobileNo;
         const password = req.body.password;
-        console.log('password', password)
         let finalUser;
 
-        if(email) {
-          const userEmail = await User.find({ email: email });  
-            console.log('userEmail', userEmail[0].password)
-            if (userEmail.length < 1) return res.status(400).send({ "error": "Email not found." })
+        if (email) {
+            const userEmail = await User.find({ email: email });
+            if (userEmail.length < 1) return _errorMassge(res, EMAIL_NOT_FOUND)
 
-         const userPassword = await bcrypt.compare(password, userEmail[0].password);
-          console.log('userPassword', userPassword)
-          if(userPassword == false)  return res.status(400).send({ "error": "password is wrong." })
+            const userPassword = await bcrypt.compare(password, userEmail[0].password);
+            if (userPassword == false) return _errorMassge(res, WRONG_PASSWORD)
 
-          finalUser =  await User.find({ email: email, password: userEmail[0].password }); 
-            console.log('finalUser', finalUser.length)
-            if (finalUser.length < 1) return res.status(400).send({ "error": "Not found Data." })
-        } 
+            finalUser = await User.find({ email: email, password: userEmail[0].password });
+            if (finalUser.length < 1) return _errorMassge(res, DATA_NOT_FOUND)
+        }
 
         else {
-            console.log('mobileNo', mobileNo)
-            const userMobile = await User.find({ mobileNo: mobileNo });  
-            console.log('userEmail', userMobile[0].password)
-            if (userMobile.length < 1) return res.status(400).send({ "error": "Mobile number not found." })
+            const userMobile = await User.find({ mobileNo: mobileNo });
+            if (userMobile.length < 1) return _errorMassge(res, MOBILE_NOT_FOUND)
 
-         const userPassword = await bcrypt.compare(password, userMobile[0].password);
-          console.log('userPassword', userPassword)
-          if(userPassword == false)  return res.status(400).send({ "error": "password is wrong." })
+            const userPassword = await bcrypt.compare(password, userMobile[0].password);
+            if (userPassword == false) return _errorMassge(res, WRONG_PASSWORD)
 
-          finalUser =  await User.find({ mobileNo: mobileNo, password: userMobile[0].password }); 
-            console.log('finalUser', finalUser.length)
-            if (finalUser.length < 1) return res.status(400).send({ "error": "Not found Data." })
-        } 
+            finalUser = await User.find({ mobileNo: mobileNo, password: userMobile[0].password });
+            if (finalUser.length < 1) return _errorMassge(res, DATA_NOT_FOUND)
+        }
 
-        console.log('finalUser==========', finalUser)
-
-        return res.status(200).json({
-            message: 'login successful',
-            token: finalUser[0].token
-        })
-
+        return _successMassage(res, finalUser[0].token);
     } catch (error) {
-        res.status(500).json({
-            errors: "data not found"
-        })
+        return next(error);
     }
-
-
 }
 
 exports.registration = registration;

@@ -5,6 +5,7 @@ const app = express();
 const morgan = require('morgan');
 require('dotenv').config();
 const user_route = require('./routes/userRoute');
+const post_route = require('./routes/postRoutes');
 
 // mongoose.set('useCreateIndex', true);
 mongoose.connect("mongodb://localhost:27017/social",
@@ -30,6 +31,7 @@ app.use((req, res, next) => {
 })
 
 app.use('/user', user_route)
+app.use('/post', post_route)
 
 const server = app.listen(process.env.PORT, () => {
     console.log('server started on', process.env.PORT);

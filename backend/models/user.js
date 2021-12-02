@@ -38,7 +38,7 @@ const userSchema = mongoose.Schema({
     },
     is_active: {
         type: String,
-        default: false
+        default: true
     },
     remember_token: {
         type: String
