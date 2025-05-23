@@ -10,8 +10,8 @@ exports._sendmail = async (email, token, res) => {
         secure: false,
         
         auth: {
-            user: "ankit.relytree@gmail.com",
-            pass: "ankit.relytree.12"
+            user: "your mail",
+            pass: "your password"
         },
         tls: {
             rejectUnauthorized: false
